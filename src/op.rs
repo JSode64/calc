@@ -1,106 +1,28 @@
+//! # Operator System
+//!
+//! This file defines operators and how they work under the hood.
+//! There are two macros that do everything: `make_un_op` and `make_bi_op`.
+//!
+//! To add more operators, simply put them in their macro.
+//!
+//! A unary operator is an operator with one argument, like `abs` or `sqrt`.
+//! A binary operator has two arguments, like adding and subtracting.
+
 use std::str::FromStr;
 
-/// A unary operator (only takes one input).
-#[derive(Clone, Copy)]
-pub enum UnOp {
-    // Signage:
-    Neg,
-    Abs,
-    Nabs,
-
-    // Square/cube and roots:
-    Sqr,
-    Sqrt,
-    Cub,
-    Cbrt,
-
-    // Euler:
-    Exp,
-    Ln,
-
-    // Trigonometric functions:
-    Sin,
-    Cos,
-    Tan,
-    Asin,
-    Acos,
-
-    // Hyperbolic trigonometric functions:
-    Atan,
-    Sinh,
-    Cosh,
-    Tanh,
-}
-
-/// A binary operator (takes two inputs).
-#[derive(Clone, Copy)]
-pub enum BiOp {
-    // Arithmetic:
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
-
-    // Powers:
-    Pow,
-    Log,
-}
-
-/// An operator, unary or binary.
-#[derive(Clone, Copy)]
+/// An operator; unary or binary.
+#[derive(Debug, Clone, Copy)]
 pub enum Op {
     Un(UnOp),
     Bi(BiOp),
 }
 
-impl UnOp {
-    /// Returns the operation done on the operand.
-    pub fn apply(self, num: f64) -> f64 {
-        match self {
-            UnOp::Neg => -num,
-            UnOp::Abs => num.abs(),
-            UnOp::Nabs => -num.abs(),
-            UnOp::Sqr => num * num,
-            UnOp::Sqrt => num.sqrt(),
-            UnOp::Cub => num * num * num,
-            UnOp::Cbrt => num.cbrt(),
-            UnOp::Exp => num.exp(),
-            UnOp::Ln => num.ln(),
-            UnOp::Sin => num.sin(),
-            UnOp::Cos => num.cos(),
-            UnOp::Tan => num.tan(),
-            UnOp::Asin => num.asin(),
-            UnOp::Acos => num.acos(),
-            UnOp::Atan => num.atan(),
-            UnOp::Sinh => num.sinh(),
-            UnOp::Cosh => num.cosh(),
-            UnOp::Tanh => num.tanh(),
-        }
-    }
-}
-
-impl BiOp {
-    /// Returns the operation done on the operands.
-    pub fn apply(self, a: f64, b: f64) -> f64 {
-        match self {
-            BiOp::Add => a + b,
-            BiOp::Sub => a - b,
-            BiOp::Mul => a * b,
-            BiOp::Div => a / b,
-            BiOp::Mod => a % b,
-            BiOp::Pow => a.powf(b),
-            BiOp::Log => a.ln() / b.ln(),
-        }
-    }
-}
-
 impl Op {
-    /// Returns the number of operands needed for the operator.
+    /// Returns the number of operands needed for the operation.
     pub fn num_operands(self) -> usize {
         match self {
-            Op::Un(_) => 1,
-            Op::Bi(_) => 2,
+            Self::Un(_) => 1,
+            Self::Bi(_) => 2,
         }
     }
 }
@@ -109,42 +31,116 @@ impl FromStr for Op {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            // Unary operators:
-            "neg" => Ok(Op::Un(UnOp::Neg)),
-            "abs" => Ok(Op::Un(UnOp::Abs)),
-            "nabs" => Ok(Op::Un(UnOp::Nabs)),
-
-            "sqr" => Ok(Op::Un(UnOp::Sqr)),
-            "sqrt" => Ok(Op::Un(UnOp::Sqrt)),
-            "cub" => Ok(Op::Un(UnOp::Cub)),
-            "cbrt" => Ok(Op::Un(UnOp::Cbrt)),
-
-            "exp" => Ok(Op::Un(UnOp::Exp)),
-            "ln" => Ok(Op::Un(UnOp::Ln)),
-
-            "sin" => Ok(Op::Un(UnOp::Sin)),
-            "cos" => Ok(Op::Un(UnOp::Cos)),
-            "tan" => Ok(Op::Un(UnOp::Tan)),
-            "asin" => Ok(Op::Un(UnOp::Asin)),
-            "acos" => Ok(Op::Un(UnOp::Acos)),
-            "atan" => Ok(Op::Un(UnOp::Atan)),
-            "sinh" => Ok(Op::Un(UnOp::Sinh)),
-            "cosh" => Ok(Op::Un(UnOp::Cosh)),
-            "tanh" => Ok(Op::Un(UnOp::Tanh)),
-
-            // Binary operators:
-            "+" => Ok(Op::Bi(BiOp::Add)),
-            "-" => Ok(Op::Bi(BiOp::Sub)),
-            "*" => Ok(Op::Bi(BiOp::Mul)),
-            "/" => Ok(Op::Bi(BiOp::Div)),
-            "%" => Ok(Op::Bi(BiOp::Mod)),
-
-            "^" => Ok(Op::Bi(BiOp::Pow)),
-            "log" => Ok(Op::Bi(BiOp::Log)),
-
-            // Not a supported operand.
-            _ => Err(()),
-        }
+        UnOp::from_str(s)
+            .map(Self::Un)
+            .or_else(|_| BiOp::from_str(s).map(Self::Bi))
     }
 }
+
+macro_rules! make_bi_op {
+    ($name:ident, $($op:ident, $s:expr, $f:expr);* $(;)*) => {
+        #[derive(Debug, Clone, Copy)]
+        pub enum $name {
+            $($op),*
+        }
+
+        impl $name {
+            /// Applies the operator to the two given operands. Returns the result.
+            pub fn apply(self, a: f64, b: f64) -> f64 {
+                match self {
+                    $(Self::$op => $f(a, b)),*
+                }
+            }
+        }
+
+        impl FromStr for $name {
+            type Err = ();
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                match s {
+                    $($s => Ok(Self::$op),)*
+                    _ => Err(()),
+                }
+            }
+        }
+    };
+}
+
+macro_rules! make_un_op {
+    ($name:ident, $($op:ident, $s:expr, $f:expr);* $(;)*) => {
+        #[derive(Debug, Clone, Copy)]
+        pub enum $name {
+            $($op),*
+        }
+
+        impl $name {
+            /// Applies the operator to the two given operands. Returns the result.
+            pub fn apply(self, n: f64) -> f64 {
+                match self {
+                    $(Self::$op => $f(n)),*
+                }
+            }
+        }
+
+        impl FromStr for $name {
+            type Err = ();
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                match s {
+                    $($s => Ok(Self::$op),)*
+                    _ => Err(()),
+                }
+            }
+        }
+    };
+}
+
+make_bi_op!(
+    BiOp,
+
+    Add, "+", |a, b| a + b;
+    Sub, "-", |a, b| a - b;
+    Mul, "*", |a, b| a * b;
+    Div, "/", |a, b| a / b;
+    Mod, "%", |a, b| a % b;
+
+    Pow, "^", |a: f64, b| a.powf(b);
+    Log, "log", |a: f64, b| a.log(b);
+
+    Max, "max", |a: f64, b| a.max(b);
+    Min, "min", |a: f64, b| a.min(b);
+);
+
+make_un_op!(
+    UnOp,
+
+    Neg, "neg", |n: f64| -n;
+    Abs, "abs", |n: f64| n.abs();
+    Nabs, "nabs", |n: f64| -n.abs();
+
+    Sqr, "sqr", |n: f64| n * n;
+    Sqrt, "sqrt", |n: f64| n.sqrt();
+    Cub, "cub", |n: f64| n * n * n;
+    Cbrt, "cbrt", |n: f64| n.cbrt();
+
+    Exp, "exp", |n: f64| n.exp();
+    Ln, "ln", |n: f64| n.ln();
+
+    Sin, "sin", |n: f64| n.sin();
+    Cos, "cos", |n: f64| n.cos();
+    Tan, "tan", |n: f64| n.tan();
+    Asin, "asin", |n: f64| n.asin();
+    Acos, "acos", |n: f64| n.acos();
+    Atan, "atan", |n: f64| n.atan();
+
+    Sind, "sind", |n: f64| n.to_radians().sin();
+    Cosd, "cosd", |n: f64| n.to_radians().cos();
+    Tand, "tand", |n: f64| n.to_radians().tan();
+    Asind, "asind", |n: f64| n.to_radians().asin();
+    Acosd, "acosd", |n: f64| n.to_radians().acos();
+    Atand, "atand", |n: f64| n.to_radians().atan();
+
+    Sinh, "sinh", |n: f64| n.sinh();
+    Cosh, "cosh", |n: f64| n.cosh();
+    Tanh, "tanh", |n: f64| n.tanh();
+);

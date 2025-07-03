@@ -21,3 +21,7 @@ Larger calls:
 >> calc 2 sqr sqr 2 + 10 log sqrt sin nabs
 -0.9002700476109888
 ```
+
+# Customization
+
+To add more operators, see `op.rs` and read the instructions at the top.
