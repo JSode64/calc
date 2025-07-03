@@ -23,16 +23,24 @@ impl Calc {
     /// Processes the given input, numeric or operand.
     /// Returns `true` on success, `false` if the input is invalid.
     pub fn process_input(&mut self, arg: &str) -> bool {
-        // Push input or handle bad input.
-        match Op::from_str(arg) {
-            // Operator; push to operator stack.
-            Ok(op) => self.ops.push(op),
+        use std::f64::consts::{E, PI};
 
-            // Not a supported operand, check if it's numeric.
-            Err(_) => match arg.parse::<f64>() {
-                Ok(num) => self.nums.push(num),
-                Err(_) => return false,
-            },
+        // Push input or handle bad input.
+        if let Ok(op) = Op::from_str(arg) {
+            self.ops.push(op);
+        } else {
+            self.nums.push(match arg {
+                // Contants:
+                "pi" => PI,
+                "2pi" => PI * 2.0,
+                "e" => E,
+
+                // Check for literal.
+                _ => match arg.parse() {
+                    Ok(num) => num,
+                    Err(_) => return false,
+                },
+            });
         }
 
         // Apply/process if possible.
@@ -60,11 +68,13 @@ impl Calc {
     /// Attempts to return the calculator's result.
     /// If the calculator is not in a valid result state, returns `None`. If it
     /// is, returns the result.
-    pub fn get_result(&self) -> Option<f64> {
-        if self.nums.len() == 1 && self.ops.len() == 0 {
-            Some(self.nums[0])
+    pub fn get_result(&self) -> Result<f64, &str> {
+        if self.nums.len() != 1 {
+            Err("Too many numbers.")
+        } else if !self.ops.is_empty() {
+            Err("Too many operators.")
         } else {
-            None
+            Ok(self.nums[0])
         }
     }
 

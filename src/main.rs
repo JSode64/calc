@@ -8,15 +8,17 @@ fn main() {
 
     let mut calc = Calc::new();
 
+    // Process all inputs.
     for arg in args().skip(1) {
         if !calc.process_input(&arg) {
-            println!("Error.");
+            println!("Invalid input: {arg}.");
             return;
         }
     }
 
+    // Attempt to print result; tell if input is bad.
     match calc.get_result() {
-        Some(res) => println!("{res}"),
-        None => println!("Invalid input."),
+        Ok(res) => println!("{res}"),
+        Err(e) => println!("{e}"),
     }
 }
