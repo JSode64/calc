@@ -22,6 +22,9 @@ Larger calls:
 -0.9002700476109888
 ```
 
-# Customization
+---
 
-To add more operators, see `op.rs` and read the instructions at the top.
+### Notes
+
+- Operators can *not* be given ahead of time, meaning expressions such as `+ 1 2` will not work. Do `1 2 +` instead.
+- To add more operators, see `op.rs` and read the instructions at the top.

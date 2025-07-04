@@ -17,16 +17,6 @@ pub enum Op {
     Bi(BiOp),
 }
 
-impl Op {
-    /// Returns the number of operands needed for the operation.
-    pub fn num_operands(self) -> usize {
-        match self {
-            Self::Un(_) => 1,
-            Self::Bi(_) => 2,
-        }
-    }
-}
-
 impl FromStr for Op {
     type Err = ();
 

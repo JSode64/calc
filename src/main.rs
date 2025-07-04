@@ -10,15 +10,15 @@ fn main() {
 
     // Process all inputs.
     for arg in args().skip(1) {
-        if !calc.process_input(&arg) {
-            println!("Invalid input: {arg}.");
+        if let Some(e) = calc.process_input(&arg) {
+            println!("{e}");
             return;
         }
     }
 
     // Attempt to print result; tell if input is bad.
     match calc.get_result() {
-        Ok(res) => println!("{res}"),
-        Err(e) => println!("{e}"),
+        Some(n) => println!("{n}"),
+        None => println!("Invalid expression: didn't end with a finished state."),
     }
 }

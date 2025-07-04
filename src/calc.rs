@@ -6,86 +6,84 @@ use super::op::Op;
 pub struct Calc {
     /// Number stack.
     nums: Vec<f64>,
-
-    /// Operator stack.
-    ops: Vec<Op>,
 }
 
 impl Calc {
     /// Returns a new empty calculator state.
     pub const fn new() -> Self {
-        Self {
-            nums: Vec::new(),
-            ops: Vec::new(),
-        }
+        Self { nums: Vec::new() }
     }
 
     /// Processes the given input, numeric or operand.
-    /// Returns `true` on success, `false` if the input is invalid.
-    pub fn process_input(&mut self, arg: &str) -> bool {
-        use std::f64::consts::{E, PI};
-
-        // Push input or handle bad input.
+    pub fn process_input(&mut self, arg: &str) -> Option<String> {
         if let Ok(op) = Op::from_str(arg) {
-            self.ops.push(op);
+            self.process_op(op)?;
         } else {
-            self.nums.push(match arg {
-                // Contants:
-                "pi" => PI,
-                "2pi" => PI * 2.0,
-                "e" => E,
-
-                // Check for literal.
-                _ => match arg.parse() {
-                    Ok(num) => num,
-                    Err(_) => return false,
-                },
-            });
+            self.push_num(arg)?;
         }
 
-        // Apply/process if possible.
-        if self.can_apply() {
-            // Match and perform operation.
-            let op = self.ops.pop().unwrap();
+        None
+    }
 
-            match op {
-                Op::Un(op) => {
-                    let n = self.nums.last_mut().unwrap();
-                    *n = op.apply(*n);
+    /// Attempts to return the calculator's result.
+    pub fn get_result(&self) -> Option<f64> {
+        if self.nums.len() == 1 {
+            Some(self.nums[0])
+        } else {
+            None
+        }
+    }
+
+    /// Attempts to preform the given operator to the stack.
+    fn process_op(&mut self, op: Op) -> Option<String> {
+        match op {
+            Op::Un(op) => match self.nums.last_mut() {
+                Some(n) => *n = op.apply(*n),
+                None => {
+                    return Some(
+                        "Invalid expression: found unary operator with no arguments.".to_string(),
+                    );
                 }
-                Op::Bi(op) => {
-                    let b = self.nums.pop().unwrap();
-                    let a = self.nums.pop().unwrap();
+            },
+            Op::Bi(op) => {
+                let b = self.nums.pop();
+                let a = self.nums.pop();
 
-                    self.nums.push(op.apply(a, b));
+                match (a, b) {
+                    (Some(a), Some(b)) => self.nums.push(op.apply(a, b)),
+                    _ => return Some(
+                        "Invalid expression: found binary operator with less than two arguments."
+                            .to_string(),
+                    ),
                 }
             }
         }
 
-        true
+        // Success.
+        None
     }
 
-    /// Attempts to return the calculator's result.
-    /// If the calculator is not in a valid result state, returns `None`. If it
-    /// is, returns the result.
-    pub fn get_result(&self) -> Result<f64, &str> {
-        if self.nums.len() != 1 {
-            Err("Too many numbers.")
-        } else if !self.ops.is_empty() {
-            Err("Too many operators.")
-        } else {
-            Ok(self.nums[0])
-        }
-    }
+    /// Attempts to evaluate and push a numeric value from the input.
+    fn push_num(&mut self, arg: &str) -> Option<String> {
+        use std::f64::consts::{E, PI};
 
-    /// Returns true if it is safe to apply an operator.
-    ///
-    /// To apply an operator, there must be:
-    /// - At least one operator in the operator stack
-    /// - A sufficient amount of operands/numbers to apply the top operator
-    fn can_apply(&self) -> bool {
-        self.ops
-            .last()
-            .is_some_and(|op| self.nums.len() >= op.num_operands())
+        self.nums.push(match arg {
+            // Constants:
+            "pi" => PI,
+            "e" => E,
+
+            // Assume numeric:
+            _ => match arg.parse() {
+                Ok(n) => n,
+                Err(_) => {
+                    return Some(format!(
+                        "Invalid input: '{arg}' is not an operator or numeric."
+                    ));
+                }
+            },
+        });
+
+        // Success.
+        None
     }
 }
