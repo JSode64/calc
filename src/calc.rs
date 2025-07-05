@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use super::op::Op;
+use crate::op::Op;
 
 /// A Reverse Polish Notation calculator state.
 pub struct Calc {
@@ -15,14 +15,14 @@ impl Calc {
     }
 
     /// Processes the given input, numeric or operand.
-    pub fn process_input(&mut self, arg: &str) -> Option<String> {
+    pub fn process_input(&mut self, arg: &str) -> Result<(), String> {
         if let Ok(op) = Op::from_str(arg) {
             self.process_op(op)?;
         } else {
             self.push_num(arg)?;
         }
 
-        None
+        Ok(())
     }
 
     /// Attempts to return the calculator's result.
@@ -35,36 +35,26 @@ impl Calc {
     }
 
     /// Attempts to preform the given operator to the stack.
-    fn process_op(&mut self, op: Op) -> Option<String> {
+    fn process_op(&mut self, op: Op) -> Result<(), String> {
         match op {
-            Op::Un(op) => match self.nums.last_mut() {
-                Some(n) => *n = op.apply(*n),
-                None => {
-                    return Some(
-                        "Invalid expression: found unary operator with no arguments.".to_string(),
-                    );
-                }
-            },
-            Op::Bi(op) => {
-                let b = self.nums.pop();
-                let a = self.nums.pop();
+            Op::Un(f) => {
+                let n = self.pop_num()?;
 
-                match (a, b) {
-                    (Some(a), Some(b)) => self.nums.push(op.apply(a, b)),
-                    _ => return Some(
-                        "Invalid expression: found binary operator with less than two arguments."
-                            .to_string(),
-                    ),
-                }
+                self.nums.push(f(n));
+            }
+            Op::Bi(f) => {
+                let b = self.pop_num()?;
+                let a = self.pop_num()?;
+
+                self.nums.push(f(a, b));
             }
         }
 
-        // Success.
-        None
+        Ok(())
     }
 
     /// Attempts to evaluate and push a numeric value from the input.
-    fn push_num(&mut self, arg: &str) -> Option<String> {
+    fn push_num(&mut self, arg: &str) -> Result<(), String> {
         use std::f64::consts::{E, PI};
 
         self.nums.push(match arg {
@@ -75,15 +65,18 @@ impl Calc {
             // Assume numeric:
             _ => match arg.parse() {
                 Ok(n) => n,
-                Err(_) => {
-                    return Some(format!(
-                        "Invalid input: '{arg}' is not an operator or numeric."
-                    ));
-                }
+                Err(_) => return Err(format!("Error: '{arg}' is not a valid token")),
             },
         });
 
-        // Success.
-        None
+        Ok(())
+    }
+
+    /// Attempts to pop a number off of the stack.
+    fn pop_num(&mut self) -> Result<f64, String> {
+        match self.nums.pop() {
+            Some(n) => Ok(n),
+            None => Err("Error: found an operator with too little arguments".to_string()),
+        }
     }
 }

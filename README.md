@@ -13,7 +13,7 @@ Adding 1 and 2:
 
 Using constants (pi times e):
 ```
->> calc pi 3 *
+>> calc pi e *
 8.539734222673566
 ```
 Larger calls:

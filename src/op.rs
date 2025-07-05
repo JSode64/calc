@@ -1,136 +1,81 @@
 //! # Operator System
 //!
-//! This file defines operators and how they work under the hood.
-//! There are two macros that do everything: `make_un_op` and `make_bi_op`.
+//! All operators are defined in a macro at the bottom of the file.
+//! To add more, just give the input token string, its kind, and the function.
 //!
-//! To add more operators, simply put them in their macro.
-//!
-//! A unary operator is an operator with one argument, like `abs` or `sqrt`.
-//! A binary operator has two arguments, like adding and subtracting.
+//! The different kinds are `Op::Bi` and `Op::Un`, representing binary and
+//! unary operators respectively.
+//! Binary operators take two inputs, for example adding two numbers.
+//! Unary operators take one input, for examples getting the square root of a number.
 
+use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 use std::str::FromStr;
 
 /// An operator; unary or binary.
 #[derive(Debug, Clone, Copy)]
 pub enum Op {
-    Un(UnOp),
-    Bi(BiOp),
+    Un(fn(f64) -> f64),
+    Bi(fn(f64, f64) -> f64),
 }
 
-impl FromStr for Op {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        UnOp::from_str(s)
-            .map(Self::Un)
-            .or_else(|_| BiOp::from_str(s).map(Self::Bi))
-    }
-}
-
-macro_rules! make_bi_op {
-    ($name:ident, $($op:ident, $s:expr, $f:expr);* $(;)*) => {
-        #[derive(Debug, Clone, Copy)]
-        pub enum $name {
-            $($op),*
-        }
-
-        impl $name {
-            /// Applies the operator to the two given operands. Returns the result.
-            pub fn apply(self, a: f64, b: f64) -> f64 {
-                match self {
-                    $(Self::$op => $f(a, b)),*
-                }
-            }
-        }
-
-        impl FromStr for $name {
+macro_rules! make_ops {
+    ($($name:expr, $kind:expr, $f:expr);* $(;)?) => {
+        impl FromStr for Op {
             type Err = ();
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 match s {
-                    $($s => Ok(Self::$op),)*
-                    _ => Err(()),
+                    $($name => Ok($kind($f)),)*
+                    _ => Err(())
                 }
             }
         }
     };
 }
 
-macro_rules! make_un_op {
-    ($name:ident, $($op:ident, $s:expr, $f:expr);* $(;)*) => {
-        #[derive(Debug, Clone, Copy)]
-        pub enum $name {
-            $($op),*
-        }
+make_ops!(
+    "+", Op::Bi, f64::add;
+    "-", Op::Bi, f64::sub;
+    "*", Op::Bi, f64::mul;
+    "/", Op::Bi, f64::div;
+    "%", Op::Bi, f64::rem;
 
-        impl $name {
-            /// Applies the operator to the two given operands. Returns the result.
-            pub fn apply(self, n: f64) -> f64 {
-                match self {
-                    $(Self::$op => $f(n)),*
-                }
-            }
-        }
+    "root", Op::Bi, |a, b| a.powf(1.0 / b);
+    "pow", Op::Bi, f64::powf;
+    "log", Op::Bi, f64::log;
 
-        impl FromStr for $name {
-            type Err = ();
+    "max", Op::Bi, f64::max;
+    "min", Op::Bi, f64::min;
 
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                match s {
-                    $($s => Ok(Self::$op),)*
-                    _ => Err(()),
-                }
-            }
-        }
-    };
-}
+    "neg", Op::Un, f64::neg;
+    "abs", Op::Un, f64::abs;
+    "nabs", Op::Un, |n| -n.abs();
 
-make_bi_op!(
-    BiOp,
+    "inv", Op::Un, |n| 1.0 / n;
+    "sqrt", Op::Un, f64::sqrt;
+    "cbrt", Op::Un, f64::cbrt;
 
-    Add, "+", |a, b| a + b;
-    Sub, "-", |a, b| a - b;
-    Mul, "*", |a, b| a * b;
-    Div, "/", |a, b| a / b;
-    Mod, "%", |a, b| a % b;
+    "exp", Op::Un, f64::exp;
+    "ln", Op::Un, f64::ln;
 
-    Pow, "^", |a: f64, b| a.powf(b);
-    Log, "log", |a: f64, b| a.log(b);
+    "sin", Op::Un, f64::sin;
+    "cos", Op::Un, f64::cos;
+    "tan", Op::Un, f64::tan;
+    "asin", Op::Un, f64::asin;
+    "acos", Op::Un, f64::acos;
+    "atan", Op::Un, f64::atan;
 
-    Max, "max", |a: f64, b| a.max(b);
-    Min, "min", |a: f64, b| a.min(b);
-);
+    "sind", Op::Un, |n| n.to_radians().sin();
+    "cosd", Op::Un, |n| n.to_radians().cos();
+    "tand", Op::Un, |n| n.to_radians().tan();
+    "asind", Op::Un, |n| n.to_radians().asin();
+    "acosd", Op::Un, |n| n.to_radians().acos();
+    "atand", Op::Un, |n| n.to_radians().atan();
 
-make_un_op!(
-    UnOp,
-
-    Neg, "neg", |n: f64| -n;
-    Abs, "abs", |n: f64| n.abs();
-    Nabs, "nabs", |n: f64| -n.abs();
-
-    Sqr, "sqr", |n: f64| n * n;
-    Sqrt, "sqrt", |n: f64| n.sqrt();
-    Cub, "cub", |n: f64| n * n * n;
-    Cbrt, "cbrt", |n: f64| n.cbrt();
-
-    Exp, "exp", |n: f64| n.exp();
-    Ln, "ln", |n: f64| n.ln();
-
-    Sin, "sin", |n: f64| n.sin();
-    Cos, "cos", |n: f64| n.cos();
-    Tan, "tan", |n: f64| n.tan();
-    Asin, "asin", |n: f64| n.asin();
-    Acos, "acos", |n: f64| n.acos();
-    Atan, "atan", |n: f64| n.atan();
-
-    Sind, "sind", |n: f64| n.to_radians().sin();
-    Cosd, "cosd", |n: f64| n.to_radians().cos();
-    Tand, "tand", |n: f64| n.to_radians().tan();
-    Asind, "asind", |n: f64| n.to_radians().asin();
-    Acosd, "acosd", |n: f64| n.to_radians().acos();
-    Atand, "atand", |n: f64| n.to_radians().atan();
-
-    Sinh, "sinh", |n: f64| n.sinh();
-    Cosh, "cosh", |n: f64| n.cosh();
-    Tanh, "tanh", |n: f64| n.tanh();
+    "sinh", Op::Un, f64::sinh;
+    "cosh", Op::Un, f64::cosh;
+    "tanh", Op::Un, f64::tanh;
+    "asinh", Op::Un, f64::asinh;
+    "acosh", Op::Un, f64::acosh;
+    "atanh", Op::Un, f64::atanh;
 );
