@@ -1,82 +1,118 @@
-use std::str::FromStr;
-
-use crate::op::Op;
-
-/// A Reverse Polish Notation calculator state.
-pub struct Calc {
-    /// Number stack.
-    nums: Vec<f64>,
+/// An operation, unary or binary.
+#[derive(Debug, Clone, Copy)]
+pub enum Op<T> {
+    Un(fn(T) -> T),
+    Bi(fn(T, T) -> T),
 }
 
-impl Calc {
-    /// Returns a new empty calculator state.
-    pub const fn new() -> Self {
-        Self { nums: Vec::new() }
-    }
+/// A trait for a calculator mode/format.
+pub trait Calc: Sized {
+    /// The input types for the calculator's operations.
+    type OpType: Clone + Copy;
 
-    /// Processes the given input, numeric or operand.
-    pub fn process_input(&mut self, arg: &str) -> Result<(), String> {
-        if let Ok(op) = Op::from_str(arg) {
-            self.process_op(op)?;
+    /// The number of entries in `std::env::args` to skip.
+    const NUM_ARGS_SKIP: usize;
+
+    /// Parses the string as a literal.
+    fn parse_str(s: &str) -> Option<Self::OpType>;
+
+    /// Maps the input string to a valid numeric if a match is present.
+    fn map_lit(s: &str) -> Option<Self::OpType>;
+
+    /// Maps the input string to a valid operation if a match is present.
+    fn map_op(s: &str) -> Option<Op<Self::OpType>>;
+
+    /// Runs the calculator.
+    fn run() -> Result<Self::OpType, String> {
+        run_calc::<Self>()
+    }
+}
+
+/// Runs the calculator using the command line arguments.
+fn run_calc<T: Calc>() -> Result<T::OpType, String> {
+    use std::env::args;
+
+    let mut stack = Vec::new();
+
+    for arg in args().skip(T::NUM_ARGS_SKIP) {
+        if let Some(n) = T::map_lit(&arg) {
+            stack.push(n);
+        } else if let Some(op) = T::map_op(&arg) {
+            perform_op(&mut stack, op)?;
         } else {
-            self.push_num(arg)?;
-        }
-
-        Ok(())
-    }
-
-    /// Attempts to return the calculator's result.
-    pub fn get_result(&self) -> Option<f64> {
-        if self.nums.len() == 1 {
-            Some(self.nums[0])
-        } else {
-            None
+            return Err(format!("'{arg}' is not a valid operator or numeric"));
         }
     }
 
-    /// Attempts to preform the given operator to the stack.
-    fn process_op(&mut self, op: Op) -> Result<(), String> {
-        match op {
-            Op::Un(f) => {
-                let n = self.pop_num()?;
+    match stack.len() {
+        1 => Ok(stack[0]),
+        _ => Err("expression finished in an incomplete state".to_string()),
+    }
+}
 
-                self.nums.push(f(n));
+/// Performs the operation on the calculator's stack.
+fn perform_op<T>(stack: &mut Vec<T>, op: Op<T>) -> Result<(), String> {
+    match op {
+        Op::Un(f) => {
+            let n = stack.pop().ok_or("found unary operator with no operands")?;
+
+            stack.push(f(n));
+        }
+        Op::Bi(f) => {
+            let e = || "found binary operator with less than two operands";
+            let b = stack.pop().ok_or_else(e)?;
+            let a = stack.pop().ok_or_else(e)?;
+
+            stack.push(f(a, b));
+        }
+    }
+
+    Ok(())
+}
+
+/// A macro that simplifies creating a calculator mode.
+///
+/// # Parameters
+/// - The type that you want to implement `Calc` for.
+/// - The type that will be stored on the calculator's stack.
+/// - The function that is called to parse string literals when no constants
+/// match. Should return `None` if invalid.
+/// - Pairs of constants, starting with the string literal then the value. For
+/// example: `"five" => 5`. The last constant should end with `;`, not `,`.
+/// - Pairs of unary operators, starting with the string literal then the
+/// operation. For example: `"sqr" => |n| n * n`. The last pair should end with
+/// `;`, not `,`.
+/// - Pairs of binary operators, starting with the string literal then the
+/// operation. For example: `"avg" => |a, b| (a + b) / 2`. The last pair should
+/// end with `;`, not `,`.
+#[macro_export]
+macro_rules! impl_calc {
+    ($name:ty, $t:ty, $parse:expr, $n_skip:literal; $($con_name:expr => $con_val:expr),* ; $($un_name:expr => $un_f:expr),* ; $($bi_name:expr => $bi_f:expr),* $(;)*) => {
+        use crate::calc::{Calc, Op};
+
+        impl Calc for $name {
+            type OpType = $t;
+
+            const NUM_ARGS_SKIP: usize = $n_skip;
+
+            fn parse_str(s: &str) -> Option<Self::OpType> {
+                $parse(s)
             }
-            Op::Bi(f) => {
-                let b = self.pop_num()?;
-                let a = self.pop_num()?;
 
-                self.nums.push(f(a, b));
+            fn map_lit(s: &str) -> Option<Self::OpType> {
+                match s {
+                    $($con_name => Some($con_val),)*
+                    _ => Self::parse_str(s),
+                }
+            }
+
+            fn map_op(s: &str) -> Option<Op<Self::OpType>> {
+                match s {
+                    $($un_name => Some(Op::Un($un_f)),)*
+                    $($bi_name => Some(Op::Bi($bi_f)),)*
+                    _ => None,
+                }
             }
         }
-
-        Ok(())
-    }
-
-    /// Attempts to evaluate and push a numeric value from the input.
-    fn push_num(&mut self, arg: &str) -> Result<(), String> {
-        use std::f64::consts::{E, PI};
-
-        self.nums.push(match arg {
-            // Constants:
-            "pi" => PI,
-            "e" => E,
-
-            // Assume numeric:
-            _ => match arg.parse() {
-                Ok(n) => n,
-                Err(_) => return Err(format!("Error: '{arg}' is not a valid token")),
-            },
-        });
-
-        Ok(())
-    }
-
-    /// Attempts to pop a number off of the stack.
-    fn pop_num(&mut self) -> Result<f64, String> {
-        match self.nums.pop() {
-            Some(n) => Ok(n),
-            None => Err("Error: found an operator with too little arguments".to_string()),
-        }
-    }
+    };
 }

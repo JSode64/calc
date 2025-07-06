@@ -1,23 +1,23 @@
+mod bin_calc;
 mod calc;
-mod op;
+mod dec_calc;
 
-fn main() {
+fn main() -> Result<(), String> {
+    use bin_calc::BinCalc;
     use calc::Calc;
+    use dec_calc::DecCalc;
     use std::env::args;
 
-    let mut calc = Calc::new();
-
-    // Process all inputs.
-    for arg in args().skip(1) {
-        if let Err(e) = calc.process_input(&arg) {
-            println!("{e}");
-            return;
-        }
+    match args().nth(1) {
+        None => return Err("no arguments given".to_string()),
+        Some(x) => println!(
+            "{}",
+            match x.as_str() {
+                "-b" => BinCalc::run()?.to_string(),
+                _ => DecCalc::run()?.to_string(),
+            }
+        ),
     }
 
-    // Attempt to print result; tell if input is bad.
-    match calc.get_result() {
-        Some(n) => println!("{n}"),
-        None => println!("Invalid expression: didn't end with a finished state"),
-    }
+    Ok(())
 }
