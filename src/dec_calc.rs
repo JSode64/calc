@@ -9,15 +9,14 @@ pub struct DecCalc;
 impl_calc!(
     DecCalc,
     f64,
-    |s: &str| s.parse().ok(),
-    1;
+    |s: &str| s.parse().ok();
 
-    // Constants start:
+    // Constants:
 
-    "pi" => PI,
-    "e" => E;
+    "PI" => PI,
+    "E" => E;
 
-    // Unary operators start:
+    // Unary operators:
 
     "neg" => f64::neg,
     "abs" => f64::abs,
@@ -51,7 +50,7 @@ impl_calc!(
     "acosh" => f64::acosh,
     "atanh" => f64::atanh;
 
-    // Binary operations start:
+    // Binary operations:
 
     "+" => f64::add,
     "-" => f64::sub,

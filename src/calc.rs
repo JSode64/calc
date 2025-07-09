@@ -8,10 +8,7 @@ pub enum Op<T> {
 /// A trait for a calculator mode/format.
 pub trait Calc: Sized {
     /// The input types for the calculator's operations.
-    type OpType: Clone + Copy;
-
-    /// The number of entries in `std::env::args` to skip.
-    const NUM_ARGS_SKIP: usize;
+    type OpType: Clone + Copy + ToString;
 
     /// Parses the string as a literal.
     fn parse_str(s: &str) -> Option<Self::OpType>;
@@ -23,24 +20,22 @@ pub trait Calc: Sized {
     fn map_op(s: &str) -> Option<Op<Self::OpType>>;
 
     /// Runs the calculator.
-    fn run() -> Result<Self::OpType, String> {
-        run_calc::<Self>()
+    fn eval(expr: &str) -> Result<String, String> {
+        run_calc::<Self>(expr).map(|n| n.to_string())
     }
 }
 
 /// Runs the calculator using the command line arguments.
-fn run_calc<T: Calc>() -> Result<T::OpType, String> {
-    use std::env::args;
-
+fn run_calc<T: Calc>(expr: &str) -> Result<T::OpType, String> {
     let mut stack = Vec::new();
 
-    for arg in args().skip(T::NUM_ARGS_SKIP) {
-        if let Some(n) = T::map_lit(&arg) {
+    for x in expr.split_ascii_whitespace() {
+        if let Some(n) = T::map_lit(x) {
             stack.push(n);
-        } else if let Some(op) = T::map_op(&arg) {
+        } else if let Some(op) = T::map_op(x) {
             perform_op(&mut stack, op)?;
         } else {
-            return Err(format!("'{arg}' is not a valid operator or numeric"));
+            return Err(format!("'{x}' is not a valid operator or numeric"));
         }
     }
 
@@ -72,6 +67,8 @@ fn perform_op<T>(stack: &mut Vec<T>, op: Op<T>) -> Result<(), String> {
 
 /// A macro that simplifies creating a calculator mode.
 ///
+/// For example usage, go see `dec_calc.rs` and/or `bin_calc.rs`.
+///
 /// # Parameters
 /// - The type that you want to implement `Calc` for.
 /// - The type that will be stored on the calculator's stack.
@@ -87,13 +84,11 @@ fn perform_op<T>(stack: &mut Vec<T>, op: Op<T>) -> Result<(), String> {
 /// end with `;`, not `,`.
 #[macro_export]
 macro_rules! impl_calc {
-    ($name:ty, $t:ty, $parse:expr, $n_skip:literal; $($con_name:expr => $con_val:expr),* ; $($un_name:expr => $un_f:expr),* ; $($bi_name:expr => $bi_f:expr),* $(;)*) => {
+    ($name:ty, $t:ty, $parse:expr; $($con_name:expr => $con_val:expr),* ; $($un_name:expr => $un_f:expr),* ; $($bi_name:expr => $bi_f:expr),* $(;)*) => {
         use crate::calc::{Calc, Op};
 
         impl Calc for $name {
             type OpType = $t;
-
-            const NUM_ARGS_SKIP: usize = $n_skip;
 
             fn parse_str(s: &str) -> Option<Self::OpType> {
                 $parse(s)
